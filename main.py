@@ -22,29 +22,28 @@
 '''
 
 import asyncio
-import http.client
-import ssl          # packaging async
 import pygame           # main game lib
 from sys import exit    # system utils (exit)
 import random           # variable elements positioning and textures
-import http.client
-import json
+# import ssl          # packaging async
+# import http.client
+# import json
 
-def post_score(score):
-    context = ssl._create_unverified_context()
-    conn = http.client.HTTPSConnection("drmfxb7c5f63d.cloudfront.net", context=context)
-    payload = json.dumps({
-        "id": "Simar",
-        "score": score
-    })
-    headers = {
-        'Content-Type': 'application/json'
-    }
-    conn.request("POST", "/post_score", payload, headers)
-    response = conn.getresponse()
-    data = response.read()
-    print("Post Score Response:", data.decode("utf-8"))
-    conn.close()
+# def post_score(score):
+#     context = ssl._create_unverified_context()
+#     conn = http.client.HTTPSConnection("drmfxb7c5f63d.cloudfront.net", context=context)
+#     payload = json.dumps({
+#         "id": "Simar",
+#         "score": score
+#     })
+#     headers = {
+#         'Content-Type': 'application/json'
+#     }
+#     conn.request("POST", "/post_score", payload, headers)
+#     response = conn.getresponse()
+#     data = response.read()
+#     print("Post Score Response:", data.decode("utf-8"))
+#     conn.close()
     
 # constants
 # [bp] use caps for const values
@@ -182,27 +181,32 @@ def reset_game():
     game_active = True  # re-launch the game
 
 def update_highscore():
-    global game_score, high_score
-    
-    context = ssl._create_unverified_context()
-    conn = http.client.HTTPSConnection("drmfxb7c5f63d.cloudfront.net", context=context)
-    conn.request("GET", "/get_scores")
-    response = conn.getresponse()
-    data = response.read().decode('utf-8')
-    leaderboard = json.loads(data)
-
-    if leaderboard['scores']:
-        highest_score = max(leaderboard['scores'], key=lambda x: x['score'])
-        high_score = highest_score['score']
-
-    # Check if the current game score is a new high score
-    if game_score > high_score:
+    global game_score
+    global high_score
+    if (game_score > high_score):
         high_score = game_score
-        post_score(game_score)
-        if game_score > high_score:
-            print("New high score achieved and posted successfully!")
-        else:
-            print("Score matched and posted successfully!")
+        
+    # global game_score, high_score
+    
+    # context = ssl._create_unverified_context()
+    # conn = http.client.HTTPSConnection("drmfxb7c5f63d.cloudfront.net", context=context)
+    # conn.request("GET", "/get_scores")
+    # response = conn.getresponse()
+    # data = response.read().decode('utf-8')
+    # leaderboard = json.loads(data)
+
+    # if leaderboard['scores']:
+    #     highest_score = max(leaderboard['scores'], key=lambda x: x['score'])
+    #     high_score = highest_score['score']
+
+    # # Check if the current game score is a new high score
+    # if game_score > high_score:
+    #     high_score = game_score
+    #     post_score(game_score)
+    #     if game_score > high_score:
+    #         print("New high score achieved and posted successfully!")
+    #     else:
+    #         print("Score matched and posted successfully!")
 
 # user exits game functionality:
 def exit_app():
