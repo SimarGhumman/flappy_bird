@@ -21,12 +21,31 @@
     @version 0.1 2023.02
 '''
 
-import asyncio          # packaging async
+import asyncio
+import http.client
+import ssl          # packaging async
 import pygame           # main game lib
 from sys import exit    # system utils (exit)
 import random           # variable elements positioning and textures
+import http.client
+import json
 
-
+def post_score(score):
+    context = ssl._create_unverified_context()
+    conn = http.client.HTTPSConnection("drmfxb7c5f63d.cloudfront.net", context=context)
+    payload = json.dumps({
+        "id": "Simar",
+        "score": score
+    })
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    conn.request("POST", "/post_score", payload, headers)
+    response = conn.getresponse()
+    data = response.read()
+    print("Post Score Response:", data.decode("utf-8"))
+    conn.close()
+    
 # constants
 # [bp] use caps for const values
 DISPLAY_WIDTH  = 576
@@ -79,11 +98,12 @@ def draw_floor():
 # different bird animation surfaces are loaded as a list
 # and are changed via a user timer event
 def bird_animation():
-    global bird_flap_index
-    bird_flap_index = (bird_flap_index + 1) % 3 # arbitrate flapping animation surfaces
-    new_bird_surface = bird_flaps[bird_flap_index]
-    new_bird_rect = new_bird_surface.get_rect(center = (BIRD_START_X, bird_rect.centery))  # this will draw a rectangle around the bird surface
-    return new_bird_surface, new_bird_rect
+    global bird_flap_index, bird_surface, bird_rect
+    bird_flap_index = (bird_flap_index + 1) % len(bird_flaps)
+    bird_surface = bird_flaps[bird_flap_index]
+    new_bird_rect = bird_surface.get_rect(center=(BIRD_START_X, bird_rect.centery))
+    bird_rect = new_bird_rect
+    return bird_surface, bird_rect
 
 # surfaces rotation will lower its quality so we rotate and create a new surface each time
 # [wip] make a lambda function for this
@@ -162,10 +182,27 @@ def reset_game():
     game_active = True  # re-launch the game
 
 def update_highscore():
-    global game_score
-    global high_score
-    if (game_score > high_score):
+    global game_score, high_score
+    
+    context = ssl._create_unverified_context()
+    conn = http.client.HTTPSConnection("drmfxb7c5f63d.cloudfront.net", context=context)
+    conn.request("GET", "/get_scores")
+    response = conn.getresponse()
+    data = response.read().decode('utf-8')
+    leaderboard = json.loads(data)
+
+    if leaderboard['scores']:
+        highest_score = max(leaderboard['scores'], key=lambda x: x['score'])
+        high_score = highest_score['score']
+
+    # Check if the current game score is a new high score
+    if game_score > high_score:
         high_score = game_score
+        post_score(game_score)
+        if game_score > high_score:
+            print("New high score achieved and posted successfully!")
+        else:
+            print("Score matched and posted successfully!")
 
 # user exits game functionality:
 def exit_app():
@@ -281,7 +318,7 @@ async def main():
             if event.type == SPAWNPIPE_EVT:  # handle custom events
                 pipe_rect_list.extend(create_pipe())  # add generated pipes tuple to the list
             if event.type == BIRD_FLAP_EVT:
-                bird_surface, bird_rect = bird_animation()
+                bird_animation()
 
         ############
         # placing assets
