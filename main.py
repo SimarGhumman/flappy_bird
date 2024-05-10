@@ -59,9 +59,10 @@ SOUND_BUFFER = 512
 COLOR_RGB = [255, 255, 255]
 SCORE_X = DISPLAY_WIDTH/2
 SCORE_Y = 100
-HIGHSCORE_Y = 850
+HIGHSCORE_Y = 900
+MAX_NAME_LENGTH = 8
 
-FLOOR_HEIGHT = 900
+FLOOR_HEIGHT = 950
 FLOOR_SPEED = 1
 GRAVITY_COEFF = 0.25    # gravity acceleration
 BIRD_START_X = 100
@@ -88,7 +89,10 @@ bird_speed = BIRD_START_SPEED
 game_active = False # indicate a un-halted game
 game_score = 0
 high_score = 0  # [wip] load from a saved value
-
+player_name = ''
+input_active = False
+high_score = 0  # Initial high score
+high_score_name = "Test"  # Initial name for the high score
 # to make a continuous floor, we make two floor surfaces move alternately
 def draw_floor():
     screen.blit(floor_surface, (floor_x,FLOOR_HEIGHT))
@@ -139,20 +143,23 @@ def create_pipe():
     upper_pipe = pipe_surface.get_rect(midbottom = (PIPE_START_X, pipe_height - PIPE_MARGIN)) # place at midbottom
     return bottom_pipe, upper_pipe  # the two pipes are returned as a tuple
 
-# check birds-pipes collision for game over
+# Check collisions and manage high score comparison
 def check_collisions(pipe_rect_list_a):
-    # check display boundaries
+    global input_active, game_score, high_score
     if bird_rect.top <= -BIRD_DISPLAY_TOLERANCE or bird_rect.bottom >= FLOOR_HEIGHT:
         die_sound.play()
+        if game_score > high_score:
+            input_active = True  # Enable name input only if new high score is achieved
+        else:
+            input_active = False  # Disable input if not a high score
         return False
 
     for pipe in pipe_rect_list_a:
-        # use rectangles for collision control.
-        # [bp][wip] costly. dont overuse. consider using a simple pipes heights bounds logic
         if bird_rect.colliderect(pipe):
             collision_sound.play()
             return False
-    return True  #no collision detected
+    return True
+
 
 # render score as text and draw as a surface
 # [wip] single score printing function, parametrized by game state
@@ -162,9 +169,10 @@ def draw_score():
     screen.blit(score_surface, score_rect)  # [demo] origin of the surfaces is the top left
 
 def draw_highscore():
-    highscore_surface = game_font.render(f'High Score: {int(high_score)}', FONT_ANTIALIAS, COLOR_RGB)    # [demo] use f-string to compose a title
-    highscore_rect = highscore_surface.get_rect(center = (SCORE_X, HIGHSCORE_Y))
-    screen.blit(highscore_surface, highscore_rect)  # [demo] origin of the surfaces is the top left
+    highscore_text = f'High Score: {high_score_name} {int(high_score)}'
+    highscore_surface = game_font.render(highscore_text, FONT_ANTIALIAS, COLOR_RGB)
+    highscore_rect = highscore_surface.get_rect(center=(SCORE_X, HIGHSCORE_Y))
+    screen.blit(highscore_surface, highscore_rect)
 
 # renewing the game
 def reset_game():
@@ -181,10 +189,10 @@ def reset_game():
     game_active = True  # re-launch the game
 
 def update_highscore():
-    global game_score
-    global high_score
-    if (game_score > high_score):
+    global game_score, high_score, high_score_name, player_name
+    if game_score > high_score:
         high_score = game_score
+        high_score_name = player_name  # Update name with new high score
         
     # global game_score, high_score
     
@@ -291,7 +299,6 @@ def action():
         reset_game()
 
 async def main():
-    # [wip] make a game class and move vars there
     global game_active
     global pipe_rect_list
     global floor_x
@@ -299,25 +306,35 @@ async def main():
     global game_score
     global gravity
     global bird_rect
-
+    global input_active
+    global player_name
+    
     ############
     # main game loop
     #
     # [wip] change to: while not game_end
     while True:
-
-        ############
+         ############
         # watch for events throughout the main loop
         #
         for event in pygame.event.get():    # we can capture any event (mouse movement, times, buttons)
             if event.type == pygame.QUIT:
                 exit_app()
             if event.type == pygame.KEYDOWN:    # map key press handlers
-                if event.key == pygame.K_SPACE:
-                    action()
-                if event.key == pygame.K_ESCAPE:    # escape key
+                if input_active:
+                    if event.key == pygame.K_RETURN:
+                        if len(player_name) > 0:
+                            update_highscore()
+                            input_active = False
+                            reset_game()
+                            player_name = ''
+                    elif event.key == pygame.K_BACKSPACE:
+                        player_name = player_name[:-1]
+                    elif len(player_name) < MAX_NAME_LENGTH and event.unicode.isalnum():
+                        player_name += event.unicode
+                if event.key == pygame.K_ESCAPE:
                     exit_app()
-            if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.type == pygame.MOUSEBUTTONDOWN and not input_active:
                 action()
             if event.type == SPAWNPIPE_EVT:  # handle custom events
                 pipe_rect_list.extend(create_pipe())  # add generated pipes tuple to the list
@@ -353,9 +370,15 @@ async def main():
             game_score +=1  # [wip] option: count score as pipes passed, add the sound [here] ...
             #game_score_sound.play()
         else:
-            update_highscore()
-            draw_highscore()    # inactive game screen will show the high score
+            draw_highscore()
             screen.blit(greeting_surface, greeting_rect)
+
+        # Handle input active
+        if input_active:
+            prompt_text = f'Enter Name: {player_name}_'
+            prompt_surface = game_font.render(prompt_text, True, COLOR_RGB)
+            prompt_rect = prompt_surface.get_rect(center=(SCORE_X, HIGHSCORE_Y - 50))
+            screen.blit(prompt_surface, prompt_rect)
 
         draw_score()
 
@@ -377,6 +400,7 @@ async def main():
         # set frame rate. some complex games may require frame limiting
         clock.tick(FPS)
         await asyncio.sleep(0)
+
 
 asyncio.run(main())
 # pygame.quit()
